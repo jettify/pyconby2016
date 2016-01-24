@@ -299,7 +299,7 @@ loop.run_until_complete(go(loop))
 				</section>
 <!-- ####################################################################  -->
 				<section>
-                    <h3>Simple TCP using low level API</h3>
+                    <h3>Simple TCP client using low level API</h3>
 					<pre><code class="hljs python" data-trim>
 class EchoClientProtocol(asyncio.Protocol):
     def __init__(self, message, loop):
@@ -342,9 +342,37 @@ loop.close()
 					</code></pre>
 				</section>
 <!-- ####################################################################  -->
+				<section>
+                    <h3>aioredis vs asyncio_redis (Stremas vs Protocols)</h3>
+					<pre><code class="hljs python" data-trim>
+async def create_connection(address, *, loop=None):
+    if isinstance(address, (list, tuple)):
+        host, port = address
+        reader, writer = yield from asyncio.open_connection(
+            host, port, loop=loop)
+    else:
+        reader, writer = yield from asyncio.open_unix_connection(
+            address, loop=loop)
+    conn = RedisConnection(reader, writer, encoding=encoding, loop=loop)
+					</code></pre>
+					<pre><code class="hljs python" data-trim>
+class RedisProtocol(asyncio.Protocol, metaclass=_RedisProtocolMeta):
+    def connection_made(self, transport):
+        ...
+    def data_received(self, data):
+        ...
+    def eof_received(self):
+        ...
+    def connection_lost(self, exc):
+        ...
+
+					</code></pre>
+				</section>
+
+<!-- ####################################################################  -->
 
 				<section>
-                    Example: Simple binary protocol implementation 
+                    Example: Simple binary protocol implementation
 					<pre><code class="hljs python" data-trim>
 import asyncio, struct
 from aiogibson import encode_command
@@ -355,7 +383,7 @@ async def read_from_connection(host, port, *, loop=None):
 
     cmd = encode_command(b'GET', 'key')
     writer.write(cmd)
-    
+
     header = await reader.readexactly(4 + 2 + 1)
     unpacked = struct.unpack(b'&ltHBI', header)
     code, gb_encoding, resp_size = unpacked
@@ -378,7 +406,7 @@ async def read_from_connection(host, port, *, loop=None):
 <!-- ####################################################################  -->
 
 				<section>
-                    Example: Simple pipelined binary protocol implementation 
+                    Example: Simple pipelined binary protocol implementation
 					<pre><code class="hljs python" data-trim>
 def execute(self):
     cmd = encode_command(b'GET', 'key')
