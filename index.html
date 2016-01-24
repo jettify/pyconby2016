@@ -14,8 +14,8 @@
 
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
 
-		<link rel="stylesheet" href="css/reveal.css">
 		<link rel="stylesheet" href="css/my.css">
+		<link rel="stylesheet" href="css/reveal.css">
 		<link rel="stylesheet" href="css/theme/white.css" id="theme">
 
 		<!-- Code syntax highlighting -->
@@ -91,6 +91,7 @@
                     But what to do when available libraries is not available?
 				</section>
 <!-- ####################################################################  -->
+				<section>
                     <h3>Asyncio</h3>
                     <ul>
                         <li>The asyncio project was officially launched with the release of Python 3.4 in March 2014.</li>
@@ -115,15 +116,404 @@
 				</section>
 <!-- ####################################################################  -->
 				<section>
+                    <h3>Debugging blocking calls tip</h3>
+                    Set environment variable <code>PYTHONASYNCIODEBUG=1</code>
+					<pre><code class="hljs python" data-trim>
+import asyncio
+import time
+
+loop = asyncio.get_event_loop()
+loop.slow_callback_duration = 0.01
+
+async def sleeper():
+    time.sleep(0.1)  # we block here
+
+loop.run_until_complete(sleeper())
+					</code></pre>
+					<pre><code class="hljs python" data-trim>
+
+Executing &lt;Task finished coro=&lt;sleeper() done, defined at
+code/debug_example.py:9&gt; result=None created at
+/usr/local/lib/python3.5/asyncio/base_events.py:323&gt;
+took 0.102 seconds
+
+					</code></pre>
+Use this trick only for debugging and testing purpose, debug mode introduces
+huge performance impact
 				</section>
 <!-- ####################################################################  -->
 				<section>
+                    <h3>Before we start writing any asyncio code lets talk about explicit event loop</h3>
+					<pre><code class="hljs python" data-trim>
+import asyncio
+async def go(loop):
+    future = asyncio.Future(loop=loop)
+    future.set_result(None)
+    await asyncio.sleep(3.0, loop=loop)
+    await future
+    print("foo")
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(go(loop))
+loop.close()
+					</code></pre>
 				</section>
 <!-- ####################################################################  -->
 				<section>
+                    <h3>Explicit Loop</h3>
+                    <img src='images/64130015.jpg'>
+                    <ul>
+                        <li>Global variables are bad (TM).</li>
+                        <li>Explicit loop makes code testable.</li>
+                        <li>Passing loop explicitly in library is sign of good code quality.</li>
+                        <li><code>asyncio</code> itself, <code>aiohttp</code> and any <code>aio-libs</code> libraries do this</li>
+                    <ul>
 				</section>
 <!-- ####################################################################  -->
 				<section>
+                    <h3>Glyph on global event loop</h3>
+                    <blockquote>
+                        <p>It would really be a pity if Tulip repeated our billion-dollar mistake [global reactor] ;-)</p>
+                        <footer>--<a href="https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ">Glyph Lefkowitz / author of Twisted</a></footer>
+                    </blockquote>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Testing asyncio code with pytest</h3>
+                    Use fixtures, Luke!
+					<pre><code class="hljs python" data-trim>
+@pytest.fixture
+def loop(request):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(None)
+
+    def fin():
+        loop.close()
+    request.addfinalizer(fin)
+    return loop
+
+def test(loop):
+    async def go():
+        await asyncio.sleep(loop=loop)
+        assert 1 == 2
+    loop.run_until_complete()
+					</code></pre>
+<ul>
+    <li>Make sure, that you use fresh new <code>loop</code> for each test.</li>
+    <li>Loop should be passed explicitly.</li>
+</ul>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h6>Approach #1 So here super secret algorithm to write db client</h6>
+                    <ol>
+                        <li>Search db client on <a href="https://github.com/aio-libs">github.com/aio-libs</a></li>
+                        <li>Make commit <font color="green">++5</font> <font color="red">--1000</font></li>
+                        <li>????</li>
+                        <li>Profit!</li>
+                    </ol>
+
+                    <p>Save development time, but you have no idea what is going on in db client.
+                    Your PM will be happy.</p>
+
+				</section>
+
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Third party libary pro tip!</h3>
+
+                    Read the (f*g) source code of your libraries! Example
+                    of python code from OneDrive SDK
+					<pre><code class="hljs python" data-trim>
+@asyncio.coroutine
+def get_async(self):
+    """Sends the GET request using an asyncio coroutine
+    ....
+    """
+    future = self._client._loop.run_in_executor(None,
+                                                self.get)
+    collection_response = yield from future
+    return collection_response
+					</code></pre>
+                    Most of the time you want to do HTTP requests using event
+                    loop not thread pool.
+
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h6>Approach #2 Database supports rest api</h6>
+                    <p>
+                    <ul>
+                        <li>DynamoDB</li>
+                        <li>Neo4j</li>
+                        <li>Elasticsearch</li>
+                        <li>HBase</li>
+                        <li>HDFS</li>
+                    </ul> <ul>
+                        <li>CouchDB</li>
+                        <li>Riak</li>
+                        <li>VoltDB</li>
+                        <li>InfluxDB</li>
+                        <li>ArangoDB</li>
+                    </ul>
+                    </p>
+                    Easy to implement required subset of APIs.
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h5>REST Client Tip</h5>
+                    <code>aiohttp.ClientSession</code> is your friend
+					<pre><code class="hljs python" data-trim>
+import asyncio
+import aiohttp
+
+
+async def go(loop):
+    session = aiohttp.ClientSession(loop=loop)
+    async with session.get('http://python.org') as resp:
+        data = await resp.text()
+        print(data)
+    session.close()
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(go(loop))
+					</code></pre>
+                Connection pooling helps to save on expensive connection
+                creation.
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Approach #3 Is there simple text or binary protocol?</h3>
+                    <p>Example of databases and message queues with binary protocol:</p>
+                    <ul>
+                        <li>redis</li>
+                        <li>memcached</li>
+                        <li>couchebase</li>
+                    </ul>
+                    <ul>
+                        <li>grearman</li>
+                        <li>beanstalkd</li>
+                        <li>disque</li>
+                    </ul>
+                    <p>Do not afraid to get your hands dirty.</p>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Simple TCP using low level API</h3>
+					<pre><code class="hljs python" data-trim>
+class EchoClientProtocol(asyncio.Protocol):
+    def __init__(self, message, loop):
+        self.loop, self.message = loop, message
+
+    def connection_made(self, transport):
+        transport.write(self.message.encode())
+
+    def data_received(self, data):
+        print('Data received: {!r}'.format(data.decode()))
+
+    def connection_lost(self, exc):
+        print('The server closed the connection')
+
+loop = asyncio.get_event_loop()
+factory = lambda: EchoClientProtocol(message, loop)
+coro = loop.create_connection(factory,'127.0.0.1', 8888)
+					</code></pre>
+Too low level, usually you should not use it. Notice all method are not
+coroutines.
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Simple TCP connection using Streams</h3>
+					<pre><code class="hljs python" data-trim>
+import asyncio
+
+async def tcp_client(message, loop):
+    reader, writer = await asyncio.open_connection('127.0.0.1', 8888,
+                                                   loop=loop)
+    writer.write(message.encode())
+    data = await reader.read(100)
+    print('Received: %r' % data.decode())
+    writer.close()
+
+message = 'Hello World!'
+loop = asyncio.get_event_loop()
+loop.run_until_complete(tcp_client(message, loop))
+loop.close()
+					</code></pre>
+				</section>
+<!-- ####################################################################  -->
+
+				<section>
+                    Example: Simple binary protocol implementation 
+					<pre><code class="hljs python" data-trim>
+import asyncio, struct
+from aiogibson import encode_command
+
+async def read_from_connection(host, port, *, loop=None):
+    reader, writer = await asyncio.open_connection(
+    host, port, loop=loop)
+
+    cmd = encode_command(b'GET', 'key')
+    writer.write(cmd)
+    
+    header = await reader.readexactly(4 + 2 + 1)
+    unpacked = struct.unpack(b'&ltHBI', header)
+    code, gb_encoding, resp_size = unpacked
+    payload = await reader.readexactly(resp_size)
+    print(payload)
+					</code></pre>
+                Simple but no protocol pipelining.
+				</section>
+
+<!-- ####################################################################  -->
+
+				<section>
+                    <h3>Protocol Pipelining</h3>
+                    Most binary protocols support pipelining
+                    <img data-src="images/pipe2.svg">
+                More info: http://tailhook.github.io/request-pipelining-presentation/
+                presentation/index.html
+				</section>
+
+<!-- ####################################################################  -->
+
+				<section>
+                    Example: Simple pipelined binary protocol implementation 
+					<pre><code class="hljs python" data-trim>
+def execute(self):
+    cmd = encode_command(b'GET', 'key')
+    self.writer.write(cmd)
+    fut = asyncio.Future(loop=self._loop)
+    self._queue.append(fut)
+    return fut
+
+async def reader_task(self):
+    while True:
+        header = await self.reader.readexactly(4 + 2 + 1)
+        unpacked = struct.unpack(b'&ltHBI', header)
+        code, gb_encoding, resp_size = unpacked
+        # wait and read payload
+        payload = await reader.readexactly(resp_size)
+        future = self._queue.pop()
+        future.set_result(payload)
+					</code></pre>
+                    See <code>aioredis</code> for reference implementation.
+				</section>
+
+<!-- ####################################################################  -->
+
+				<section>
+                    <h4>Approach #4 Is Sync Python Client available?</h4>
+                    In good sync database clients IO decoupled from protocol
+                    parsers why not just rewrite IO part?
+                    <ol>
+                        <li> Locate <b>socket.recv()</b></li>
+                        <li> Replace with <b>await reader.read()</b></li>
+                        <li> Make function coroutine with <b>async def</b></li>
+                        <li> Call this function with <b>await</b> </li>
+                        <li> Call parent functions with <b>await</b> </li>
+                    </ol>
+				</section>
+<!-- ####################################################################  -->
+
+				<section>
+                    <h3>Approach #5 Is there universal solution to all problems?</h3>
+                    Yes. Make every blocking call in separate thread
+					<pre><code class="hljs python" data-trim>
+import asyncio
+from pyodbc import connect
+
+loop = asyncio.get_event_loop()
+executor = ThreadPoolExecutor(max_workers=4)
+async def test_example():
+    dsn = 'Driver=SQLite;Database=sqlite.db'
+    conn = await loop.run_in_executor(executor, connect, dsn)
+    cursor = await loop.run_in_executor(executor, conn.cursor)
+    conn = await loop.run_in_executor(executor, cursor.execute,
+                                      'SELECT 42;')
+
+loop.run_until_complete(test_example())
+					</code></pre>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+
+                    <h3>aioodbc example</h3>
+                    Nice public API
+					<pre><code class="hljs python" data-trim>
+pool = await aioodbc.create_pool(dsn=dsn, loop=loop)
+
+async with pool.acquire() as conn:
+    cur = await conn.cursor()
+    await cur.execute("SELECT 42;")
+    r = await cur.fetchall()
+    print(r)
+					</code></pre>
+                    Ugly internals :)
+					<pre><code class="hljs python" data-trim>
+    def _execute(self, func, *args, **kwargs):
+        func = partial(func, *args, **kwargs)
+        future = self._loop.run_in_executor(self._executor, func)
+        return future
+
+    async def _connect(self):
+        f = self._execute(pyodbc.connect, self._dsn,
+                          autocommit=self._autocommit, ansi=self._ansi,
+                          timeout=self._timeout,
+                          **self._kwargs)
+        self._conn = await f
+					</code></pre>
+				</section>
+
+
+
+
+<!-- ####################################################################  -->
+				<section>
+                    <h3>But how I know which method to call in thread?</h3>
+                    For python code
+					<pre><code class="hljs python" data-trim>
+requests.get()
+					</code></pre>
+                    For Cython
+					<pre><code class="hljs python" data-trim>
+with nogil:
+    [code to be executed with the GIL released]
+					</code></pre>
+                    <p>For C extension</p>
+					<pre><code class="hljs python" data-trim>
+Py_BEGIN_ALLOW_THREADS
+ret = SQLDriverConnect(hdbc, 0, szConnect, SQL_NTS,
+                       0, 0, 0, SQL_DRIVER_NOPROMPT);
+Py_END_ALLOW_THREADS
+
+					</code></pre>
+				</section>
+
+<!-- ####################################################################  -->
+				<section>
+					<h3>Keep an eye on StopIteration in python 3.4</h3>
+					<pre><code class="hljs python" data-trim>
+>>> i = iter(range(2))
+>>> next(i)
+0
+>>> next(i)
+1
+>>> next(i)
+Traceback (most recent call last):
+  File "stdin", line 1, in module
+StopIteration
+>>>
+					</code></pre>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+					<h3>Recap</h3>
+                    <ul>
+                        <li>asyncio is fun</li>
+                        <li>Implementing binary protocols is easy</li>
+                        <li>Check out https://github.com/aio-libs</li>
+                    </ul>
 				</section>
 <!-- ####################################################################  -->
 
