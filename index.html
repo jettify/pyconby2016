@@ -70,10 +70,10 @@
 				</section>
 <!-- ####################################################################  -->
 				<section id="poll">
-                    <h3>Poll </h3>
-                    <h5> You and asyncio:</h5>
+                    <h5> Poll: you and asyncio</h5>
+                    <img src='images/batman.jpg'>
                     <ol>
-                        <li>I am using asyncio extensively</li>
+                        <li>I am using asyncio/aiohttp extensively</li>
                         <li>I am using Twisted, Tornado, gevent etc. extensively</li>
                         <li>I think async programming is kinda cool</li>
                     </ol>
@@ -82,13 +82,18 @@
 				<section>
                     <h3>Agenda</h3>
                     <ul>
-                        <li>Brief history of Asyncio</li>
                         <li>Tips you need to know before writing any asyncio code</li>
-                        <li>Different approaches in database client</li>
+                        <li>Different approaches in database clients
+                            <ul>
+                                <li>REST case</li>
+                                <li>Binary protocol case</li>
+                                <li>Semi sync case</li>
+                                <li>Thread pool case</li>
+                            </ul>
+                        </li>
                         <li>Different approaches in database client</li>
                     </ul>
 
-                    But what to do when available libraries is not available?
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -99,7 +104,7 @@
                         <li>One year later, asyncio has a strong community writing libraries on top of it.</li>
                     </ul>
 
-                    But what to do when available libraries is not available?
+                    <p><i>But what to do when available libraries is not available?</i></p>
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -113,33 +118,6 @@
                         <li>asyncio wiki page: <a href="https://github.com/python/asyncio/wiki/ThirdParty">ThirdParty</a></li>
                         <li>aio-libs: <a href="https://github.com/aio-libs">github.com/aio-libs</a></li>
                     </ul>
-				</section>
-<!-- ####################################################################  -->
-				<section>
-                    <h3>Debugging blocking calls tip</h3>
-                    Set environment variable <code>PYTHONASYNCIODEBUG=1</code>
-					<pre><code class="hljs python" data-trim>
-import asyncio
-import time
-
-loop = asyncio.get_event_loop()
-loop.slow_callback_duration = 0.01
-
-async def sleeper():
-    time.sleep(0.1)  # we block here
-
-loop.run_until_complete(sleeper())
-					</code></pre>
-					<pre><code class="hljs python" data-trim>
-
-Executing &lt;Task finished coro=&lt;sleeper() done, defined at
-code/debug_example.py:9&gt; result=None created at
-/usr/local/lib/python3.5/asyncio/base_events.py:323&gt;
-took 0.102 seconds
-
-					</code></pre>
-Use this trick only for debugging and testing purpose, debug mode introduces
-huge performance impact
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -157,17 +135,6 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(go(loop))
 loop.close()
 					</code></pre>
-				</section>
-<!-- ####################################################################  -->
-				<section>
-                    <h3>Explicit Loop</h3>
-                    <img src='images/64130015.jpg'>
-                    <ul>
-                        <li>Global variables are bad (TM).</li>
-                        <li>Explicit loop makes code testable.</li>
-                        <li>Passing loop explicitly in library is sign of good code quality.</li>
-                        <li><code>asyncio</code> itself, <code>aiohttp</code> and any <code>aio-libs</code> libraries do this</li>
-                    <ul>
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -202,6 +169,33 @@ def test(loop):
     <li>Make sure, that you use fresh new <code>loop</code> for each test.</li>
     <li>Loop should be passed explicitly.</li>
 </ul>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Debugging blocking calls tip</h3>
+                    Set environment variable <code>PYTHONASYNCIODEBUG=1</code>
+					<pre><code class="hljs python" data-trim>
+import asyncio
+import time
+
+loop = asyncio.get_event_loop()
+loop.slow_callback_duration = 0.01
+
+async def sleeper():
+    time.sleep(0.1)  # we block here
+
+loop.run_until_complete(sleeper())
+					</code></pre>
+					<pre><code class="hljs python" data-trim>
+
+Executing &lt;Task finished coro=&lt;sleeper() done, defined at
+code/debug_example.py:9&gt; result=None created at
+/usr/local/lib/python3.5/asyncio/base_events.py:323&gt;
+took 0.102 seconds
+
+					</code></pre>
+Use this trick only for debugging and testing purpose, debug mode introduces
+huge performance impact
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -443,6 +437,37 @@ async def reader_task(self):
                     </ol>
 				</section>
 <!-- ####################################################################  -->
+				<section>
+                    <h3>aiomysql vs PyMySQL</h3>
+					<pre><code class="hljs python" data-trim>
+def read(self):
+    try:
+        first_packet = self.connection._read_packet()
+        if first_packet.is_ok_packet():
+            self._read_ok_packet(first_packet)
+        elif first_packet.is_load_local_packet():
+            self._read_load_local_packet(first_packet)
+        else:
+            self._read_result_packet(first_packet)
+    finally:
+        self.connection = None
+                    </code></pre>
+					<pre><code class="hljs python" data-trim>
+@asyncio.coroutine
+def read(self):
+    try:
+        first_packet = yield from self.connection._read_packet()
+        if first_packet.is_ok_packet():
+            self._read_ok_packet(first_packet)
+        elif first_packet.is_load_local_packet():
+            yield from self._read_load_local_packet(first_packet)
+        else:
+            yield from self._read_result_packet(first_packet)
+    finally:
+        self.connection = None
+                    </code></pre>
+				</section>
+<!-- ####################################################################  -->
 
 				<section>
                     <h3>Approach #5 Is there universal solution to all problems?</h3>
@@ -467,7 +492,7 @@ loop.run_until_complete(test_example())
 				<section>
 
                     <h3>aioodbc example</h3>
-                    Nice public API
+                    Nice public (PEP-0279) like API
 					<pre><code class="hljs python" data-trim>
 pool = await aioodbc.create_pool(dsn=dsn, loop=loop)
 
@@ -492,9 +517,6 @@ async with pool.acquire() as conn:
         self._conn = await f
 					</code></pre>
 				</section>
-
-
-
 
 <!-- ####################################################################  -->
 				<section>
@@ -522,16 +544,22 @@ Py_END_ALLOW_THREADS
 				<section>
 					<h3>Keep an eye on StopIteration in python 3.4</h3>
 					<pre><code class="hljs python" data-trim>
->>> i = iter(range(2))
->>> next(i)
-0
->>> next(i)
-1
->>> next(i)
-Traceback (most recent call last):
-  File "stdin", line 1, in module
-StopIteration
->>>
+@asyncio.coroutine
+def coro():
+    raise StopIteration('batman')
+
+@asyncio.coroutine
+def coro2():
+    i = iter(range(2))
+    next(i)
+    next(i)
+    next(i)  # raise StopIteration
+    return 'finish'
+
+@asyncio.coroutine
+def go():
+    data = yield from coro()  # batman
+    data = yield from coro2() # None
 					</code></pre>
 				</section>
 <!-- ####################################################################  -->
@@ -539,17 +567,18 @@ StopIteration
 					<h3>Recap</h3>
                     <ul>
                         <li>asyncio is fun</li>
-                        <li>Implementing binary protocols is easy</li>
-                        <li>Check out https://github.com/aio-libs</li>
+                        <li>Implementing database clients is easy</li>
+                        <li>Write code with asyncio is harder but result  more correct</li>
+                        <li>Finalizers more important then in sync code</li>
+                        <li>Check out <a href="https://github.com/aio-libs">github.com/aio-libs</></li>
                     </ul>
 				</section>
 <!-- ####################################################################  -->
 
-				<section style="text-align: left;">
+				<section style="text-align: left;" data-background="images/dr2.png" data-state="img-right">
 					<h1>THE END</h1>
 					<p>
-						- <a href="http://slides.com">Try the online editor</a> <br>
-						- <a href="https://github.com/hakimel/reveal.js">Source code &amp; documentation</a>
+						<a href="http://jettify.github.io/pyconby2016"> http://jettify.github.io/pyconby2016</a> <br>
 					</p>
 				</section>
 <!-- ####################################################################  -->
