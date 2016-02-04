@@ -56,13 +56,13 @@
                     <h3>I am ...</h3>
                     <ul>
                         <li><b>Software Engineer</b>: at DataRobot Ukraine</li>
-                        <li><b>Github</b>: https://github.com/jettify</li>
-                        <li><b>Twitter</b>: https://twitter.com/isinf</li>
+                        <li><b>Github</b>: <a href="https://github.com/jettify">https://github.com/jettify</a></li>
+                        <li><b>Twitter</b>: <a href="https://twitter.com/isinf">@isinf</a></li>
                         <li><b>My Projects</b>:
                             <ul>
                                 <!-- TODO: add link to each project -->
-                                <li><i>database clients</i>: <code>aiomysql, aioobc, aiogibson</code></li>
-                                <li><i>web and etc</i>: <code>aiohttp_debugtoolbar, aiobotocore,
+                                <li>database clients: <code>aiomysql, aioobc, aiogibson</code></li>
+                                <li>web and etc: <code>aiohttp_debugtoolbar, aiobotocore,
                                     aiohttp_mako, aiohttp_sse, aiogearman, aiomysql_replicatoin</code></li>
                             </ul>
                         </li>
@@ -71,7 +71,7 @@
 <!-- ####################################################################  -->
 				<section id="poll">
                     <h5> Poll: you and asyncio</h5>
-                    <img src='images/batman.jpg'>
+                    <img src="images/batman.jpg" alt="batman">
                     <ol>
                         <li>I am using asyncio/aiohttp extensively</li>
                         <li>I am using Twisted, Tornado, gevent etc. extensively</li>
@@ -91,7 +91,6 @@
                                 <li>Thread pool case</li>
                             </ul>
                         </li>
-                        <li>Different approaches in database client</li>
                     </ul>
 
 				</section>
@@ -111,9 +110,9 @@
                     <h3> asyncio Internet impact?</h3>
                     Search asyncio compatible library on:
                     <ul>
-                        <li>google ~ 177k results</li>
-                        <li>pypi ~200 packages</li>
-                        <li>github ~350 repos</li>
+                        <li>google ~ 179k results</li>
+                        <li> <a href="https://warehouse.python.org">warehouse</a> ~319 packages</li>
+                        <li>github ~370 repos</li>
                         <li>stackoverflow ~840 related questions</li>
                         <li>asyncio wiki page: <a href="https://github.com/python/asyncio/wiki/ThirdParty">ThirdParty</a></li>
                         <li>aio-libs: <a href="https://github.com/aio-libs">github.com/aio-libs</a></li>
@@ -141,13 +140,13 @@ loop.close()
                     <h3>Glyph on global event loop</h3>
                     <blockquote>
                         <p>It would really be a pity if Tulip repeated our billion-dollar mistake [global reactor] ;-)</p>
-                        <footer>--<a href="https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ">Glyph Lefkowitz / author of Twisted</a></footer>
+                        <footer>--Glyph Lefkowitz / author of Twisted</footer>
                     </blockquote>
+                    <a hrep="https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ">https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ</a>
 				</section>
 <!-- ####################################################################  -->
 				<section>
                     <h3>Testing asyncio code with pytest</h3>
-                    Use fixtures, Luke!
 					<pre><code class="hljs python" data-trim>
 @pytest.fixture
 def loop(request):
@@ -167,13 +166,13 @@ def test(loop):
 					</code></pre>
 <ul>
     <li>Make sure, that you use fresh new <code>loop</code> for each test.</li>
-    <li>Loop should be passed explicitly.</li>
+    <li>Loop should be passed explicitly. (Hi Twisted!)</li>
 </ul>
 				</section>
 <!-- ####################################################################  -->
 				<section>
                     <h3>Debugging blocking calls tip</h3>
-                    Set environment variable <code>PYTHONASYNCIODEBUG=1</code>
+                    Set env variable <code>PYTHONASYNCIODEBUG=1</code>
 					<pre><code class="hljs python" data-trim>
 import asyncio
 import time
@@ -236,6 +235,7 @@ def get_async(self):
 <!-- ####################################################################  -->
 				<section>
                     <h6>Approach #2 Database supports rest api</h6>
+                    Most hipster's databases use REST API as primary access method:
                     <p>
                     <ul>
                         <li>DynamoDB</li>
@@ -264,7 +264,7 @@ import aiohttp
 
 async def go(loop):
     session = aiohttp.ClientSession(loop=loop)
-    async with session.get('http://python.org') as resp:
+    async with session.get('http://by.pycon.org') as resp:
         data = await resp.text()
         print(data)
     session.close()
@@ -404,14 +404,14 @@ async def read_from_connection(host, port, *, loop=None):
 					<pre><code class="hljs python" data-trim>
 def execute(self):
     cmd = encode_command(b'GET', 'key')
-    self.writer.write(cmd)
+    self._writer.write(cmd)
     fut = asyncio.Future(loop=self._loop)
     self._queue.append(fut)
     return fut
 
 async def reader_task(self):
-    while True:
-        header = await self.reader.readexactly(4 + 2 + 1)
+    while not self._reader.at_eof():
+        header = await self._reader.readexactly(4 + 2 + 1)
         unpacked = struct.unpack(b'&ltHBI', header)
         code, gb_encoding, resp_size = unpacked
         # wait and read payload
@@ -421,7 +421,27 @@ async def reader_task(self):
 					</code></pre>
                     See <code>aioredis</code> for reference implementation.
 				</section>
+				<section>
+                    <h6>Use Factories For Connection Objects</h6>
 
+					<pre><code class="hljs python" data-trim>
+class Connection:
+    def __init__(self, reader, writer, host, port, loop=None):
+        self._reader, self._writer = reader, writer
+        self._reader_task = asyncio.Task(self._read_data(), loop=self._loop)
+    def execute(self, command, *args, data=None, cb=None):
+        ...
+        return fut
+   async def reader_task(self):
+        while not self._reader.at_eof():
+            ...
+async def create_connection(host, port, queue=None, loop=None):
+    reader, writer = await asyncio.open_connection(
+        host, port, loop=loop)
+    conn = Connection(reader, writer, host, port, loop=loop)
+    return conn
+					</code></pre>
+				</section>
 <!-- ####################################################################  -->
 
 				<section>
