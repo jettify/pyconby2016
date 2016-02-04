@@ -488,6 +488,20 @@ def read(self):
                     </code></pre>
 				</section>
 <!-- ####################################################################  -->
+				<section>
+                    <h3>How to Stop Background Task?</h3>
+					<pre><code class="hljs python" data-trim>
+self._reader_task = asyncio.create_task(
+    self._read_data(), loop=self._loop)
+self._reader_task.cancel()
+
+try:
+    await self._reader_task
+except asyncio.CanceledError:
+    pass
+					</code></pre>
+				</section>
+<!-- ####################################################################  -->
 
 				<section>
                     <h3>Approach #5 Is there universal solution to all problems?</h3>
