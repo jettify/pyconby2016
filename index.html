@@ -443,6 +443,21 @@ async def create_connection(host, port, queue=None, loop=None):
 					</code></pre>
 				</section>
 <!-- ####################################################################  -->
+				<section>
+                    <h3>How to Stop Background Task?</h3>
+					<pre><code class="hljs python" data-trim>
+self._reader_task = asyncio.create_task(
+    self._read_data(), loop=self._loop)
+self._reader_task.cancel()
+
+try:
+    await self._reader_task
+except asyncio.CanceledError:
+    pass
+					</code></pre>
+                    Remember clean up after background tasks.
+				</section>
+<!-- ####################################################################  -->
 
 				<section>
                     <h4>Approach #4 Is Sync Python Client available?</h4>
@@ -486,20 +501,6 @@ def read(self):
     finally:
         self.connection = None
                     </code></pre>
-				</section>
-<!-- ####################################################################  -->
-				<section>
-                    <h3>How to Stop Background Task?</h3>
-					<pre><code class="hljs python" data-trim>
-self._reader_task = asyncio.create_task(
-    self._read_data(), loop=self._loop)
-self._reader_task.cancel()
-
-try:
-    await self._reader_task
-except asyncio.CanceledError:
-    pass
-					</code></pre>
 				</section>
 <!-- ####################################################################  -->
 
