@@ -142,7 +142,19 @@ loop.close()
                         <p>It would really be a pity if Tulip repeated our billion-dollar mistake [global reactor] ;-)</p>
                         <footer>--Glyph Lefkowitz / author of Twisted</footer>
                     </blockquote>
-                    <a hrep="https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ">https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ</a>
+                    <a href="https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ">https://groups.google.com/forum/#!msg/python-tulip/hr1kPZfMX8U/9uqdlbRuRsoJ</a>
+				</section>
+<!-- ####################################################################  -->
+				<section>
+                    <h3>Convenience of explicit loop</h3>
+                    <ul>
+                        <li>Increase testability (Hello Twisted!)</li>
+                        <li>Fast access to bunch of useful methods: <code>run_in_executor,
+                                create_subprocess_exec, create_task </code></li>
+                        <li>Easier to reason code when you have nonstandard case like: two
+                            threads two event loops, or main thread is sync second is async</li>
+                    </ul>
+
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -393,8 +405,7 @@ async def read_from_connection(host, port, *, loop=None):
                     <h3>Protocol Pipelining</h3>
                     Most binary protocols support pipelining
                     <img data-src="images/pipe2.svg">
-                More info: http://tailhook.github.io/request-pipelining-presentation/
-                presentation/index.html
+                More info: http://tailhook.github.io/request-pipelining-presentation/ presentation/index.html
 				</section>
 
 <!-- ####################################################################  -->
@@ -522,6 +533,18 @@ async def test_example():
 
 loop.run_until_complete(test_example())
 					</code></pre>
+				</section>
+
+<!-- ####################################################################  -->
+				<section>
+                    <h3>What a second someone said threads?</h3>
+                    <ul>
+                        <li>GIL is not a issue of IO bound tasks</li>
+                        <li>Thread context switching is not slow</li>
+                        <li>Thread-per-connection does scale in our case, we have limited db resource</li>
+                        <li>Threads does not take up too much memory, if you have few of them</li>
+                    </ul>
+                    <a href="http://techspot.zzzeek.org/2015/02/15/asynchronous-python-and-databases/">http://techspot.zzzeek.org/2015/02/15/asynchronous-python-and-databases/</a>
 				</section>
 <!-- ####################################################################  -->
 				<section>
