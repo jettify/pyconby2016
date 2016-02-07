@@ -61,7 +61,7 @@
                         <li><b>My Projects</b>:
                             <ul>
                                 <!-- TODO: add link to each project -->
-                                <li>database clients: <code>aiomysql, aioobc, aiogibson</code></li>
+                                <li>database clients: <code>aiomysql, aioodbc, aiogibson</code></li>
                                 <li>web and etc: <code>aiohttp_debugtoolbar, aiobotocore,
                                     aiohttp_mako, aiohttp_sse, aiogearman, aiomysql_replicatoin</code></li>
                             </ul>
@@ -77,22 +77,6 @@
                         <li>I am using Twisted, Tornado, gevent etc. extensively</li>
                         <li>I think async programming is kinda cool</li>
                     </ol>
-				</section>
-<!-- ####################################################################  -->
-				<section>
-                    <h3>Agenda</h3>
-                    <ul>
-                        <li>Tips you need to know before writing any asyncio code</li>
-                        <li>Different approaches in database clients
-                            <ul>
-                                <li>REST case</li>
-                                <li>Binary protocol case</li>
-                                <li>Semi sync case</li>
-                                <li>Thread pool case</li>
-                            </ul>
-                        </li>
-                    </ul>
-
 				</section>
 <!-- ####################################################################  -->
 				<section>
@@ -155,31 +139,6 @@ loop.close()
                             threads two event loops, or main thread is sync second is async</li>
                     </ul>
 
-				</section>
-<!-- ####################################################################  -->
-				<section>
-                    <h3>Testing asyncio code with pytest</h3>
-					<pre><code class="hljs python" data-trim>
-@pytest.fixture
-def loop(request):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(None)
-
-    def fin():
-        loop.close()
-    request.addfinalizer(fin)
-    return loop
-
-def test(loop):
-    async def go():
-        await asyncio.sleep(loop=loop)
-        assert 1 == 2
-    loop.run_until_complete()
-					</code></pre>
-<ul>
-    <li>Make sure, that you use fresh new <code>loop</code> for each test.</li>
-    <li>Loop should be passed explicitly. (Hi Twisted!)</li>
-</ul>
 				</section>
 <!-- ####################################################################  -->
 				<section>
